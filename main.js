@@ -5,23 +5,31 @@ let surface;                    // A surface model
 let shProgram;                  // A shader program
 let spaceball;                  // A SimpleRotator object that lets the user rotate the view by mouse.
 
+let R1 = 0.35;                   // Radius of smaller cylinder
+let R2 = 3 * R1;                // Radius of bigger cylinder
+let b =  3 * R1;                // Height of the surface
+
+// Degree to Radian
 function deg2rad(angle) {
     return angle * Math.PI / 180;
 }
 
+let horizontals = 0;
+let verticals = 0;
 
 // Constructor
 function Model(name) {
     this.name = name;
     this.iVertexBuffer = gl.createBuffer();
     this.count = 0;
+    this.verticesLength = 0;
 
     this.BufferData = function(vertices) {
 
         gl.bindBuffer(gl.ARRAY_BUFFER, this.iVertexBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STREAM_DRAW);
 
-        this.count = vertices.length/3;
+        this.verticesLength  = vertices.length;
     }
 
     this.Draw = function() {
@@ -29,8 +37,16 @@ function Model(name) {
         gl.bindBuffer(gl.ARRAY_BUFFER, this.iVertexBuffer);
         gl.vertexAttribPointer(shProgram.iAttribVertex, 3, gl.FLOAT, false, 0, 0);
         gl.enableVertexAttribArray(shProgram.iAttribVertex);
-   
-        gl.drawArrays(gl.LINE_STRIP, 0, this.count);
+
+        // Drawing horizontal lines
+        for (let i = 0; i < horizontals; i++ ) {
+            gl.drawArrays(gl.LINE_STRIP, verticals * i, verticals);
+        }
+
+        // Drawing vertical lines
+        for (let i = 0; i < verticals; i++ ) {
+            gl.drawArrays(gl.LINE_STRIP, this.verticesLength / 6 + (horizontals * i), horizontals);
+        }
     }
 }
 
@@ -86,16 +102,49 @@ function draw() {
     surface.Draw();
 }
 
+// Function to calculate r value for the surface according to the formula
+function calculateValue(alpha) {
+    const sinResult = Math.sin(deg2rad(180 * alpha) / (4 * b)) * Math.sin(deg2rad(180 * alpha) / (4 * b));
+    return (R2 - R1) * sinResult + R1;
+  }
+
+
 function CreateSurfaceData()
 {
     let vertexList = [];
+    const stepAlpha = 0.1
+    const stepBeta = 10
 
-    for (let i=0; i<360; i+=5) {
-        vertexList.push( Math.sin(deg2rad(i)), 1, Math.cos(deg2rad(i)) );
-        vertexList.push( Math.sin(deg2rad(i)), 0, Math.cos(deg2rad(i)) );
+    let x = 0
+    let y = 0
+    let z = 0
+
+    // Ranges:
+    // 0 <= alpha(i) <= 2b
+    // 0 <= beta(j) <= 2PI
+    for (let i = 0;  i<= 2 * b;  i+= stepAlpha) {
+        for (let j = 0; j<= 360; j+=stepBeta){
+            x = calculateValue(i) * Math.cos(deg2rad(j));
+            y = calculateValue(i) * Math.sin(deg2rad(j));
+            z = i;
+            
+            vertexList.push(x, y, z);
+        }
+        horizontals++;
     }
 
-    return vertexList;
+    for (let j = 0; j<= 360; j+=stepBeta) {
+        for (let i = 0;  i<= 2 * b;  i+= stepAlpha){
+            x = calculateValue(i) * Math.cos(deg2rad(j));
+            y = calculateValue(i) * Math.sin(deg2rad(j));
+            z = i;
+            
+            vertexList.push(x, y, z);
+        }
+        verticals++;
+    }
+
+    return vertexList; 
 }
 
 
