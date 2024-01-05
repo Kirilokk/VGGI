@@ -1,5 +1,5 @@
-# WebGL
+# VGGI
 
-Project that accompanies VGGI credit module.
+![alt text](screens/screenshot1.jpg "Screenshot 1")​
+![alt text](screens/screenshot1.jpg "Screenshot 2")​
 
-Visit vggi-kpi.blogspot.com for more information
