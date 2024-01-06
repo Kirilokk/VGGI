@@ -7,6 +7,35 @@
     body {
         background-color: #EEEEEE;
     }
+
+    div#controls {
+        margin-top: 10px;
+        width: 800px;
+        
+    } 
+
+    label{
+        margin-right: 10px;
+    }
+
+    span + label{
+        margin-left: 60px;
+    }
+    
+
+    fieldset > div {
+        margin-bottom: 10px;
+    }
+
+    button {
+        border: none;
+        border-radius: 5px;
+        background-color: #3498db; /* Change to your preferred background color */
+        color: white;
+        font-size: 14px;
+        cursor: pointer;
+        margin-left: 5px;
+    }
 </style>
 
 <script src="./Utils/trackball-rotator.js"></script>
@@ -27,8 +56,56 @@
 
 
 <div id="canvas-holder">
-   <canvas width="600" height="600" id="webglcanvas" style="background-color:red"></canvas>
+   <canvas width="800" height="800" id="webglcanvas" style="background-color:red"></canvas>
 </div>
 
+<div id="controls">
+    <fieldset>
+        <legend>Controls</legend>
+
+        <div> 
+            <label for="paramR">R1</label>
+            <input type="range" id="paramR1" min="0.2" max="1" step="0.01" value="0.35" onchange="updateParameters()">
+            <span id="R1Current">0.35</span>
+
+            <label for="paramAlphaStep">Step alpha</label>
+            <input type="range" id="paramAlphaStep" min="0.1" max="1" step="0.01" value="0.1" onchange="updateParameters()">
+            <span id="AlphaCurrent">0.1</span>
+        </div>
+
+
+        
+        <div>
+            <label for="paramR">R2</label>
+            <input type="range" id="paramR2" min="0.2" max="2" step="0.01" value="1.05" onchange="updateParameters()">
+            <span id="R2Current">1.05</span>
+
+            <label for="paramBetaStep">Step beta</label>
+            <input type="range" id="paramBetaStep" min="0" max="20" step="1" value="10" onchange="updateParameters()">
+            <span id="BetaCurrent">10</span>
+        </div>
+
+        <div>
+            <label for="paramR">Height</label>
+            <input type="range" id="paramB" min="0.2" max="2" step="0.01" value="1.05" onchange="updateParameters()">
+            <span id="BCurrent">1.05</span>
+        </div>
+
+
+
+
+
+
+
+        
+        <div>
+            <label for="default">Set to default</label>
+            <button onclick="setDefault()">Click</button>
+        </div>
+
+    </fieldset>
+    
+
+</div>
 
 </body></html>

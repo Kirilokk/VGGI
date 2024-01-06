@@ -8,15 +8,56 @@ let spaceball;                  // A SimpleRotator object that lets the user rot
 let R1 = 0.35;                   // Radius of smaller cylinder
 let R2 = 3 * R1;                // Radius of bigger cylinder
 let b =  3 * R1;                // Height of the surface
+let stepAlpha = 0.1             // Step for alpha
+let stepBeta = 10               // Step for beta
+
+let horizontals = 0;
+let verticals = 0;
 
 // Degree to Radian
 function deg2rad(angle) {
     return angle * Math.PI / 180;
 }
 
-let horizontals = 0;
-let verticals = 0;
 
+// Update parameters on user change
+function setParameters(R1New, R2New, BNew, alphaNew, betaNew){
+    R1 = R1New; 
+    //R2 = 3 * R1;
+    R2 = R2New;
+    //b =  3 * R1;
+    b = BNew;
+    stepAlpha = alphaNew
+    stepBeta = betaNew;
+    horizontals = 0;
+    verticals = 0;
+}
+
+// Function to set default surface parameters
+function setDefault() {
+    const r1 = 0.35                                               
+    const r2 = 1.05
+    const b = 1.05
+    const alphaStep = 0.1;
+    const betaStep = 10;
+
+
+    setParameters(r1, r2, b, alphaStep, betaStep)
+
+    surface.BufferData(CreateSurfaceData());
+    document.getElementById("R1Current").textContent = r1;
+    document.getElementById("R2Current").textContent = r2;
+    document.getElementById("BCurrent").textContent = b;
+    document.getElementById("AlphaCurrent").textContent = alphaStep;
+    document.getElementById("BetaCurrent").textContent = betaStep;
+
+    document.getElementById("paramR1").value = r1
+    document.getElementById("paramR2").value = r2
+    document.getElementById("paramB").value = b
+    document.getElementById("paramAlphaStep").value = alphaStep;
+    document.getElementById("paramBetaStep").value = betaStep;
+    draw();
+}
 // Constructor
 function Model(name) {
     this.name = name;
@@ -108,12 +149,33 @@ function calculateValue(alpha) {
     return (R2 - R1) * sinResult + R1;
   }
 
+// Function to update the surface with the new max value of parameter r
+function updateParameters() {
+    const r1 = parseFloat(document.getElementById("paramR1").value);
+    const r2 = parseFloat(document.getElementById("paramR2").value);
+    const b = parseFloat(document.getElementById("paramB").value);
+    const alphaStep = parseFloat(document.getElementById("paramAlphaStep").value);
+    const betaStep = parseFloat(document.getElementById("paramBetaStep").value);
+    
+    setParameters(r1, r2, b, alphaStep, betaStep)
+
+
+    surface.BufferData(CreateSurfaceData());
+    document.getElementById("R1Current").textContent = r1;
+    document.getElementById("R2Current").textContent = r2;
+    document.getElementById("BCurrent").textContent = b;
+    document.getElementById("AlphaCurrent").textContent = alphaStep;
+    document.getElementById("BetaCurrent").textContent = betaStep;
+    draw();
+}
+
 
 function CreateSurfaceData()
 {
+    // console.log(R1)
+    // console.log(R2)
+    // console.log(b)
     let vertexList = [];
-    const stepAlpha = 0.1
-    const stepBeta = 10
 
     let x = 0
     let y = 0
