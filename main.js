@@ -9,7 +9,7 @@ let R1 = 0.35;                   // Radius of smaller cylinder
 let R2 = 3 * R1;                // Radius of bigger cylinder
 let b =  3 * R1;                // Height of the surface
 let stepAlpha = 0.1             // Step for alpha
-let stepBeta = 10               // Step for beta
+let stepBeta = 1               // Step for beta
 
 let horizontals = 0;
 let verticals = 0;
@@ -33,18 +33,7 @@ function setParameters(R1New, R2New, BNew, alphaNew, betaNew){
     verticals = 0;
 }
 
-// Function to set default surface parameters
-function setDefault() {
-    const r1 = 0.35                                               
-    const r2 = 1.05
-    const b = 1.05
-    const alphaStep = 0.1;
-    const betaStep = 10;
-
-
-    setParameters(r1, r2, b, alphaStep, betaStep)
-
-    surface.BufferData(CreateSurfaceData());
+function updateHtml(r1, r2, b, alphaStep, betaStep){
     document.getElementById("R1Current").textContent = r1;
     document.getElementById("R2Current").textContent = r2;
     document.getElementById("BCurrent").textContent = b;
@@ -56,6 +45,36 @@ function setDefault() {
     document.getElementById("paramB").value = b
     document.getElementById("paramAlphaStep").value = alphaStep;
     document.getElementById("paramBetaStep").value = betaStep;
+}
+
+
+
+// Function to set default surface parameters
+function setDefault() {
+    const r1 = 0.35                                               
+    const r2 = 1.05
+    const b = 1.05
+    const alphaStep = 0.1;
+    const betaStep = 1;
+
+    setParameters(r1, r2, b, alphaStep, betaStep)
+    updateHtml(r1, r2, b, alphaStep, betaStep)
+    surface.BufferData(CreateSurfaceData());
+    draw();
+}
+
+// Function to update the surface with the new max value of parameter r
+function updateParameters() {
+    const r1 = parseFloat(document.getElementById("paramR1").value);
+    const r2 = parseFloat(document.getElementById("paramR2").value);
+    const b = parseFloat(document.getElementById("paramB").value);
+    const alphaStep = parseFloat(document.getElementById("paramAlphaStep").value);
+    const betaStep = parseFloat(document.getElementById("paramBetaStep").value);
+    
+    setParameters(r1, r2, b, alphaStep, betaStep)
+
+    updateHtml(r1, r2, b, alphaStep, betaStep)
+    surface.BufferData(CreateSurfaceData());
     draw();
 }
 // Constructor
@@ -63,14 +82,12 @@ function Model(name) {
     this.name = name;
     this.iVertexBuffer = gl.createBuffer();
     this.count = 0;
-    this.verticesLength = 0;
 
     this.BufferData = function(vertices) {
 
         gl.bindBuffer(gl.ARRAY_BUFFER, this.iVertexBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STREAM_DRAW);
-
-        this.verticesLength  = vertices.length;
+        this.count = vertices.length/3;
     }
 
     this.Draw = function() {
@@ -79,15 +96,7 @@ function Model(name) {
         gl.vertexAttribPointer(shProgram.iAttribVertex, 3, gl.FLOAT, false, 0, 0);
         gl.enableVertexAttribArray(shProgram.iAttribVertex);
 
-        // Drawing horizontal lines
-        for (let i = 0; i < horizontals; i++ ) {
-            gl.drawArrays(gl.LINE_STRIP, verticals * i, verticals);
-        }
-
-        // Drawing vertical lines
-        for (let i = 0; i < verticals; i++ ) {
-            gl.drawArrays(gl.LINE_STRIP, this.verticesLength / 6 + (horizontals * i), horizontals);
-        }
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, this.count);
     }
 }
 
@@ -120,7 +129,7 @@ function draw() {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     
     /* Set the values of the projection transformation */
-    let projection = m4.perspective(Math.PI/8, 1, 8, 12); 
+    let projection = m4.perspective(Math.PI/6, 1, 8, 12); 
     
     /* Get the view matrix from the SimpleRotator object.*/
     let modelView = spaceball.getViewMatrix();
@@ -149,32 +158,9 @@ function calculateValue(alpha) {
     return (R2 - R1) * sinResult + R1;
   }
 
-// Function to update the surface with the new max value of parameter r
-function updateParameters() {
-    const r1 = parseFloat(document.getElementById("paramR1").value);
-    const r2 = parseFloat(document.getElementById("paramR2").value);
-    const b = parseFloat(document.getElementById("paramB").value);
-    const alphaStep = parseFloat(document.getElementById("paramAlphaStep").value);
-    const betaStep = parseFloat(document.getElementById("paramBetaStep").value);
-    
-    setParameters(r1, r2, b, alphaStep, betaStep)
-
-
-    surface.BufferData(CreateSurfaceData());
-    document.getElementById("R1Current").textContent = r1;
-    document.getElementById("R2Current").textContent = r2;
-    document.getElementById("BCurrent").textContent = b;
-    document.getElementById("AlphaCurrent").textContent = alphaStep;
-    document.getElementById("BetaCurrent").textContent = betaStep;
-    draw();
-}
-
 
 function CreateSurfaceData()
 {
-    // console.log(R1)
-    // console.log(R2)
-    // console.log(b)
     let vertexList = [];
 
     let x = 0
@@ -184,26 +170,21 @@ function CreateSurfaceData()
     // Ranges:
     // 0 <= alpha(i) <= 2b
     // 0 <= beta(j) <= 2PI
-    for (let i = 0;  i<= 2 * b;  i+= stepAlpha) {
-        for (let j = 0; j<= 360; j+=stepBeta){
-            x = calculateValue(i) * Math.cos(deg2rad(j));
-            y = calculateValue(i) * Math.sin(deg2rad(j));
-            z = i;
-            
-            vertexList.push(x, y, z);
-        }
-        horizontals++;
-    }
+    for (let i = 0;  i <= 2 * b;  i+= stepAlpha) {
+        for (let j = 0; j <= 360; j+=stepBeta){
 
-    for (let j = 0; j<= 360; j+=stepBeta) {
-        for (let i = 0;  i<= 2 * b;  i+= stepAlpha){
             x = calculateValue(i) * Math.cos(deg2rad(j));
             y = calculateValue(i) * Math.sin(deg2rad(j));
             z = i;
             
             vertexList.push(x, y, z);
+
+            x = calculateValue(i + 0.1) * Math.cos(deg2rad(j + 0.1));
+            y = calculateValue(i + 0.1) * Math.sin(deg2rad(j + 0.1));
+            z = i + 0.1;
+            
+            vertexList.push(x, y, z);
         }
-        verticals++;
     }
 
     return vertexList; 
