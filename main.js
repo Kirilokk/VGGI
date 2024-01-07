@@ -19,7 +19,6 @@ function deg2rad(angle) {
     return angle * Math.PI / 180;
 }
 
-
 // Update parameters on user change
 function setParameters(R1New, R2New, BNew, alphaNew, betaNew){
     R1 = R1New; 
@@ -46,8 +45,6 @@ function updateHtml(r1, r2, b, alphaStep, betaStep){
     document.getElementById("paramAlphaStep").value = alphaStep;
     document.getElementById("paramBetaStep").value = betaStep;
 }
-
-
 
 // Function to set default surface parameters
 function setDefault() {
@@ -77,16 +74,21 @@ function updateParameters() {
     surface.BufferData(CreateSurfaceData());
     draw();
 }
+
 // Constructor
 function Model(name) {
     this.name = name;
     this.iVertexBuffer = gl.createBuffer();
+    this.iNormalBuffer = gl.createBuffer();
     this.count = 0;
 
-    this.BufferData = function(vertices) {
+    this.BufferData = function(vertices, normals) {
 
         gl.bindBuffer(gl.ARRAY_BUFFER, this.iVertexBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STREAM_DRAW);
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.iNormalBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STREAM_DRAW);
+
         this.count = vertices.length/3;
     }
 
@@ -95,6 +97,10 @@ function Model(name) {
         gl.bindBuffer(gl.ARRAY_BUFFER, this.iVertexBuffer);
         gl.vertexAttribPointer(shProgram.iAttribVertex, 3, gl.FLOAT, false, 0, 0);
         gl.enableVertexAttribArray(shProgram.iAttribVertex);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.iNormalBuffer);
+        gl.vertexAttribPointer(shProgram.iAttribNormal, 3, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(shProgram.iAttribNormal);
 
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, this.count);
     }
@@ -109,6 +115,7 @@ function ShaderProgram(name, program) {
 
     // Location of the attribute variable in the shader program.
     this.iAttribVertex = -1;
+    this.iAttribNormal = -1;
     // Location of the uniform specifying a color for the primitive.
     this.iColor = -1;
     // Location of the uniform matrix representing the combined transformation.
@@ -152,42 +159,80 @@ function draw() {
     surface.Draw();
 }
 
-// Function to calculate r value for the surface according to the formula
-function calculateValue(alpha) {
-    const sinResult = Math.sin(deg2rad(180 * alpha) / (4 * b)) * Math.sin(deg2rad(180 * alpha) / (4 * b));
-    return (R2 - R1) * sinResult + R1;
-  }
+// Function to calculate X surface coordinate
+function getX (alpha, beta){
+    let r = ( R2 - R1 ) * Math.pow(Math.sin(deg2rad(( 180 * alpha ) / (4 * b))),2) + R1; 
+    return r * Math.cos(deg2rad(beta));
+}
 
+// Function to calculate Y surface coordinate
+function getY (alpha, beta){
+    let r = ( R2 - R1 ) * Math.pow(Math.sin(deg2rad(( 180 * alpha ) / (4 * b))),2) + R1; 
+    return r * Math.sin(deg2rad(beta))
+}
+
+// Function to calculate Z surface coordinate
+function getZ(alpha){
+    return alpha;
+}
+
+// Partial derivatives for U
+function getDerivativeU(u, v, x, y, z, delta){
+    let dx_du = (getX(u + delta, v) - x) / deg2rad(delta);  
+    let dy_du = (getY(u + delta, v) - y) / deg2rad(delta);
+    let dz_du = (getZ(u + delta, v) - z) / deg2rad(delta);
+
+    return [dx_du, dy_du, dz_du];
+}
+
+// Partial derivatives for V
+function getDerivativeV(u, v, x, y, z, delta){
+    let dx_dv = (getX(u, v + delta) - x) / deg2rad(delta);  
+    let dy_dv = (getY(u, v + delta) - y) / deg2rad(delta);
+    let dz_dv = (getZ(u, v + delta) - z) / deg2rad(delta);
+
+    return [dx_dv, dy_dv, dz_dv];
+}
 
 function CreateSurfaceData()
 {
     let vertexList = [];
+    let normalsList = [];
 
     let x = 0
     let y = 0
     let z = 0
-
+    let delta = 0.0001
     // Ranges:
     // 0 <= alpha(i) <= 2b
     // 0 <= beta(j) <= 2PI
     for (let i = 0;  i <= 2 * b;  i+= stepAlpha) {
         for (let j = 0; j <= 360; j+=stepBeta){
 
-            x = calculateValue(i) * Math.cos(deg2rad(j));
-            y = calculateValue(i) * Math.sin(deg2rad(j));
-            z = i;
+            x = getX(i, j);
+            y = getY(i, j);
+            z = getZ(i);
+            let derU = getDerivativeU(i, j, x, y, z, delta);
+            let derV = getDerivativeV(i, j, x, y, z, delta);
+            let UVproduct = m4.cross(derU, derV);
             
             vertexList.push(x, y, z);
+            normalsList.push(UVproduct[0], UVproduct[1], UVproduct[2]);
 
-            x = calculateValue(i + 0.1) * Math.cos(deg2rad(j + 0.1));
-            y = calculateValue(i + 0.1) * Math.sin(deg2rad(j + 0.1));
-            z = i + 0.1;
+
+            x = getX(i + 0.1, j);
+            y = getY(i + 0.1, j);
+            z = getZ(i + 0.1);
+            derU = getDerivativeU(i + 0.1, j, x, y, z, delta);
+            derV = getDerivativeV(i + 0.1, j, x, y, z, delta);
+            UVproduct = m4.cross(derU, derV);
             
             vertexList.push(x, y, z);
+            normalsList.push(UVproduct[0], UVproduct[1], UVproduct[2]);
         }
     }
 
-    return vertexList; 
+    return [vertexList, normalsList]; 
 }
 
 
@@ -199,11 +244,17 @@ function initGL() {
     shProgram.Use();
 
     shProgram.iAttribVertex              = gl.getAttribLocation(prog, "vertex");
+    shProgram.iAttribNormal              = gl.getAttribLocation(prog,"normal");
+
     shProgram.iModelViewProjectionMatrix = gl.getUniformLocation(prog, "ModelViewProjectionMatrix");
     shProgram.iColor                     = gl.getUniformLocation(prog, "color");
 
     surface = new Model('Surface');
-    surface.BufferData(CreateSurfaceData());
+    let surfaceInfo = CreateSurfaceData()
+    let vertex = surfaceInfo[0];
+    let normals = surfaceInfo[1]
+
+    surface.BufferData(vertex, normals);
 
     gl.enable(gl.DEPTH_TEST);
 }
