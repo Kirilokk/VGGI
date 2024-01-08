@@ -1,4 +1,11 @@
-# VGGI
+# VGGI PA#2
 
-![alt text](screens/surface.gif "Surface")​
+- Local light;
+- Shading Phong;
+- Projection Perspect;
+- Normals analytic calculation.
+
+
+
+![alt text](screens/light.gif "Surface")​
 
