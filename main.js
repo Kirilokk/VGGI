@@ -11,6 +11,11 @@ let b =  3 * R1;                // Height of the surface
 let stepAlpha = 0.1             // Step for alpha
 let stepBeta = 0.1               // Step for beta
 
+let pointLocationI = 0;
+let pointLocationJ = 0;
+let ScaleValue = 0.0;
+let InputCounter = 0.0;
+
 // Degree to Radian
 function deg2rad(angle) {
     return angle * Math.PI / 180;
@@ -76,24 +81,28 @@ function Model(name) {
     this.iVertexBuffer = gl.createBuffer();
     this.iNormalBuffer = gl.createBuffer();
     this.iTexBuffer = gl.createBuffer();
+    this.iPointBuffer  = gl.createBuffer();
     this.count = 0;
 
     this.BufferData = function(vertices, normals, texCoord) {
 
         gl.bindBuffer(gl.ARRAY_BUFFER, this.iVertexBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STREAM_DRAW);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, this.iNormalBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STREAM_DRAW);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STATIC_DRAW);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, this.iTexBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texCoord), gl.STATIC_DRAW);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.iPointBuffer)
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0,0,0]), gl.DYNAMIC_DRAW);
 
         this.count = vertices.length/3;
     }
 
     this.Draw = function() {
-
+        gl.uniform1i(shProgram.iDrawPoint, false);
         gl.bindBuffer(gl.ARRAY_BUFFER, this.iVertexBuffer);
         gl.vertexAttribPointer(shProgram.iAttribVertex, 3, gl.FLOAT, false, 0, 0);
         gl.enableVertexAttribArray(shProgram.iAttribVertex);
@@ -107,6 +116,9 @@ function Model(name) {
         gl.enableVertexAttribArray(shProgram.itexCoordLocation);
 
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, this.count);
+
+        gl.uniform1i(shProgram.iDrawPoint, true);
+        gl.drawArrays(gl.POINTS, 0, 1);
     }
 }
 
@@ -129,8 +141,13 @@ function ShaderProgram(name, program) {
     this.iLightWorldPositionLocation = -1;
     this.iWorldLocation = -1;
     this.viewWorldPositionLocation = -1;
+
     this.Itmu = -1;
     this.itexCoordLocation = -1;
+    this.iDrawPoint = -1;
+    this.iPointWorldLocation = -1;
+    this.iScaleValue = -1;
+    this.iPointLocation_u_v = -1;
 
     this.Use = function() {
         gl.useProgram(this.prog);
@@ -171,8 +188,11 @@ function draw() {
 
     
     gl.uniform3fv(shProgram.iLightWorldPositionLocation, [20, 30, 50]);
-    gl.uniform1i(shProgram.Itmu, 0);
 
+    gl.uniform1i(shProgram.Itmu, 0);
+    gl.uniform3fv(shProgram.iPointWorldLocation, getPointLocation());
+    gl.uniform1f(shProgram.iScaleValue,  ScaleValue);
+    gl.uniform2fv(shProgram.iPointLocation_u_v,[pointLocationI / (2 * b), pointLocationJ / 360]);
     surface.Draw();
 }
 
@@ -260,8 +280,8 @@ function createTexture(){
 
     gl.bindTexture(gl.TEXTURE_2D, texture);
 
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 
@@ -278,6 +298,79 @@ function createTexture(){
         draw();
     });
 }
+
+
+window.addEventListener("keydown", (event) =>{  
+    switch (event.key) {
+        case "w":
+            ProcessPressW();
+            break;
+        case "s":
+            ProcessPressS();
+            break;
+        case "a":
+            ProcessPressA();
+            break;
+        case "d":
+            ProcessPressD();
+            break;
+        case "+":
+            ProcessAddValueScale();
+            break;
+        case "-":
+            ProcessSubValueScale();
+            break;
+        default:
+            return; 
+    }
+});
+
+function ProcessAddValueScale()
+{
+    ScaleValue += 0.2;
+    draw();
+}
+function ProcessSubValueScale()
+{
+    ScaleValue -= 0.2;
+    draw();
+}
+
+function ProcessPressW()
+{
+    pointLocationJ -= 5.0;
+    draw();
+}
+
+function ProcessPressS()
+{
+    pointLocationJ += 5.0;
+    draw();
+}
+
+function ProcessPressA()
+{
+    pointLocationI -= 0.1;
+    draw();
+}
+
+function ProcessPressD()
+{
+    pointLocationI += 0.1;
+    draw();
+}
+
+function getPointLocation(){
+    let pointList = [];
+    let x, y, z;
+
+    x = getX(pointLocationI, pointLocationJ);
+    y = getY(pointLocationI, pointLocationJ);
+    z = getZ(pointLocationI);
+    pointList.push(x, y, z);
+    return pointList;
+}
+
 
 /* Initialize the WebGL context. Called from init() */
 function initGL() {
@@ -301,13 +394,18 @@ function initGL() {
     shProgram.Itmu                              = gl.getUniformLocation(prog, "tmu");//u_tex->textureLocation
     shProgram.itexCoordLocation                 = gl.getAttribLocation(prog, "texCoordLocation")//a_tex->texcoordLocation
 
+    shProgram.iDrawPoint                 = gl.getUniformLocation(prog,"DrawPoint");
+    shProgram.iPointWorldLocation        = gl.getUniformLocation(prog,"PointWorldLocation");
+    shProgram.iScaleValue                       = gl.getUniformLocation(prog,"fScaleValue");
+    shProgram.iPointLocation_u_v                = gl.getUniformLocation(prog,"UserPointLocation");
     surface = new Model('Surface');
+
     let surfaceInfo = CreateSurfaceData()
     let vertex = surfaceInfo[0];
     let normals = surfaceInfo[1]
     let texture = surfaceInfo[2]
 
-    surface.BufferData(vertex, normals);
+    surface.BufferData(vertex, normals, texture);
 
     gl.enable(gl.DEPTH_TEST);
 }
@@ -372,6 +470,6 @@ function init() {
     }
 
     spaceball = new TrackballRotator(canvas, draw, 0);
-
+    
     createTexture();
 }

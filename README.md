@@ -1,5 +1,12 @@
-# WebGL
+# VGGI Calculation and graphics work
 
-Project that accompanies VGGI credit module.
+- Vatiant 25 - Scaling
 
-Visit vggi-kpi.blogspot.com for more information
+
+Cgw.gif
+![alt text](screens/cgw.gif "Surface")​
+
+
+
+Cgw screenshot
+![alt text](screens/screenshot.jpg "Surface")​
