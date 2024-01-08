@@ -3,10 +3,10 @@
 - Vatiant 25 - Scaling
 
 
-Cgw.gif
+### Cgw.gif
 ![alt text](screens/cgw.gif "Surface")​
 
 
 
-Cgw screenshot
+### Cgw screenshot
 ![alt text](screens/screenshot.jpg "Surface")​
