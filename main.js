@@ -121,6 +121,10 @@ function ShaderProgram(name, program) {
     // Location of the uniform matrix representing the combined transformation.
     this.iModelViewProjectionMatrix = -1;
 
+    this.iWorldInverseTransposeLocation =  -1;
+    this.iLightWorldPositionLocation = -1;
+    this.iWorldLocation = -1;
+
     this.Use = function() {
         gl.useProgram(this.prog);
     }
@@ -151,11 +155,14 @@ function draw() {
        combined transformation matrix, and send that to the shader program. */
     let modelViewProjection = m4.multiply(projection, matAccum1 );
 
-    gl.uniformMatrix4fv(shProgram.iModelViewProjectionMatrix, false, modelViewProjection );
-    
-    /* Draw the six faces of a cube, with different colors. */
-    gl.uniform4fv(shProgram.iColor, [1,1,0,1] );
+    let worldInverseMatrix = m4.inverse(matAccum1);
+    let worldInverseTransposeMatrix = m4.transpose(worldInverseMatrix);
 
+    gl.uniformMatrix4fv(shProgram.iModelViewProjectionMatrix, false, modelViewProjection );
+    gl.uniformMatrix4fv(shProgram.iWorldInverseTransposeLocation, false, worldInverseTransposeMatrix);
+    gl.uniformMatrix4fv(shProgram.iWorldLocation, false, matAccum1);
+    gl.uniformMatrix4fv(shProgram.iModelViewProjectionMatrix, false, modelViewProjection );
+    gl.uniform3fv(shProgram.iLightWorldPositionLocation, [20, 30, 50]);
     surface.Draw();
 }
 
@@ -198,7 +205,6 @@ function CreateSurfaceData()
 {
     let vertexList = [];
     let normalsList = [];
-
     let x = 0
     let y = 0
     let z = 0
@@ -245,6 +251,11 @@ function initGL() {
 
     shProgram.iAttribVertex              = gl.getAttribLocation(prog, "vertex");
     shProgram.iAttribNormal              = gl.getAttribLocation(prog,"normal");
+
+    shProgram.iWorldInverseTransposeLocation = gl.getUniformLocation(prog, "worldInverseTranspose");
+    shProgram.iLightWorldPositionLocation = gl.getUniformLocation(prog, "lightWorldPosition");
+    shProgram.iWorldLocation = gl.getUniformLocation(prog, "world");
+
 
     shProgram.iModelViewProjectionMatrix = gl.getUniformLocation(prog, "ModelViewProjectionMatrix");
     shProgram.iColor                     = gl.getUniformLocation(prog, "color");
