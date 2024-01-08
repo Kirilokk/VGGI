@@ -1,4 +1,5 @@
-# VGGI
+# WebGL
 
-![alt text](screens/surface.gif "Surface")​
+Project that accompanies VGGI credit module.
 
+Visit vggi-kpi.blogspot.com for more information
