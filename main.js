@@ -9,10 +9,7 @@ let R1 = 0.35;                   // Radius of smaller cylinder
 let R2 = 3 * R1;                // Radius of bigger cylinder
 let b =  3 * R1;                // Height of the surface
 let stepAlpha = 0.1             // Step for alpha
-let stepBeta = 1               // Step for beta
-
-let horizontals = 0;
-let verticals = 0;
+let stepBeta = 0.1               // Step for beta
 
 // Degree to Radian
 function deg2rad(angle) {
@@ -28,8 +25,6 @@ function setParameters(R1New, R2New, BNew, alphaNew, betaNew){
     b = BNew;
     stepAlpha = alphaNew
     stepBeta = betaNew;
-    horizontals = 0;
-    verticals = 0;
 }
 
 function updateHtml(r1, r2, b, alphaStep, betaStep){
@@ -80,14 +75,19 @@ function Model(name) {
     this.name = name;
     this.iVertexBuffer = gl.createBuffer();
     this.iNormalBuffer = gl.createBuffer();
+    this.iTexBuffer = gl.createBuffer();
     this.count = 0;
 
-    this.BufferData = function(vertices, normals) {
+    this.BufferData = function(vertices, normals, texCoord) {
 
         gl.bindBuffer(gl.ARRAY_BUFFER, this.iVertexBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STREAM_DRAW);
+
         gl.bindBuffer(gl.ARRAY_BUFFER, this.iNormalBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STREAM_DRAW);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.iTexBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texCoord), gl.STATIC_DRAW);
 
         this.count = vertices.length/3;
     }
@@ -101,6 +101,10 @@ function Model(name) {
         gl.bindBuffer(gl.ARRAY_BUFFER, this.iNormalBuffer);
         gl.vertexAttribPointer(shProgram.iAttribNormal, 3, gl.FLOAT, false, 0, 0);
         gl.enableVertexAttribArray(shProgram.iAttribNormal);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.iTexBuffer);
+        gl.vertexAttribPointer(shProgram.itexCoordLocation, 2, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(shProgram.itexCoordLocation);
 
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, this.count);
     }
@@ -124,6 +128,9 @@ function ShaderProgram(name, program) {
     this.iWorldInverseTransposeLocation =  -1;
     this.iLightWorldPositionLocation = -1;
     this.iWorldLocation = -1;
+    this.viewWorldPositionLocation = -1;
+    this.Itmu = -1;
+    this.itexCoordLocation = -1;
 
     this.Use = function() {
         gl.useProgram(this.prog);
@@ -137,8 +144,8 @@ function ShaderProgram(name, program) {
  */
 function draw() { 
     gl.clearColor(0,0,0,1);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);    
+
     /* Set the values of the projection transformation */
     let projection = m4.perspective(Math.PI/6, 1, 8, 12); 
     
@@ -161,8 +168,11 @@ function draw() {
     gl.uniformMatrix4fv(shProgram.iModelViewProjectionMatrix, false, modelViewProjection );
     gl.uniformMatrix4fv(shProgram.iWorldInverseTransposeLocation, false, worldInverseTransposeMatrix);
     gl.uniformMatrix4fv(shProgram.iWorldLocation, false, matAccum1);
-    gl.uniformMatrix4fv(shProgram.iModelViewProjectionMatrix, false, modelViewProjection );
+
+    
     gl.uniform3fv(shProgram.iLightWorldPositionLocation, [20, 30, 50]);
+    gl.uniform1i(shProgram.Itmu, 0);
+
     surface.Draw();
 }
 
@@ -205,6 +215,7 @@ function CreateSurfaceData()
 {
     let vertexList = [];
     let normalsList = [];
+    let texCoordList = [];
     let x = 0
     let y = 0
     let z = 0
@@ -224,7 +235,7 @@ function CreateSurfaceData()
             
             vertexList.push(x, y, z);
             normalsList.push(UVproduct[0], UVproduct[1], UVproduct[2]);
-
+            texCoordList.push(i / (2 * b), j / 360);
 
             x = getX(i + 0.1, j);
             y = getY(i + 0.1, j);
@@ -235,12 +246,38 @@ function CreateSurfaceData()
             
             vertexList.push(x, y, z);
             normalsList.push(UVproduct[0], UVproduct[1], UVproduct[2]);
+            texCoordList.push((i + 0.1) / (2 * b), j / 360);
+
         }
     }
 
-    return [vertexList, normalsList]; 
+    return [vertexList, normalsList, texCoordList];  
 }
 
+
+function createTexture(){
+    let texture = gl.createTexture();
+
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE, new Uint8Array([255,255,255,255]));
+
+    let img = new Image();
+    img.crossOrigin = "Anonymous";
+    img.src = 'https://static.vecteezy.com/system/resources/thumbnails/022/664/807/small/cat-face-silhouettes-cat-face-svg-black-and-white-cat-vector.jpg';
+    img.addEventListener('load', function() {
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE, img);
+        gl.generateMipmap(gl.TEXTURE_2D);
+        draw();
+    });
+}
 
 /* Initialize the WebGL context. Called from init() */
 function initGL() {
@@ -259,11 +296,16 @@ function initGL() {
 
     shProgram.iModelViewProjectionMatrix = gl.getUniformLocation(prog, "ModelViewProjectionMatrix");
     shProgram.iColor                     = gl.getUniformLocation(prog, "color");
+    shProgram.viewWorldPositionLocation = gl.getUniformLocation(prog, "viewWorldPosition");
+
+    shProgram.Itmu                              = gl.getUniformLocation(prog, "tmu");//u_tex->textureLocation
+    shProgram.itexCoordLocation                 = gl.getAttribLocation(prog, "texCoordLocation")//a_tex->texcoordLocation
 
     surface = new Model('Surface');
     let surfaceInfo = CreateSurfaceData()
     let vertex = surfaceInfo[0];
     let normals = surfaceInfo[1]
+    let texture = surfaceInfo[2]
 
     surface.BufferData(vertex, normals);
 
@@ -331,5 +373,5 @@ function init() {
 
     spaceball = new TrackballRotator(canvas, draw, 0);
 
-    draw();
+    createTexture();
 }
