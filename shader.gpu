@@ -3,63 +3,20 @@
 const vertexShaderSource = `
 attribute vec3 vertex;
 attribute vec3 normal;
-attribute vec2 texCoordLocation;
 uniform mat4 ModelViewProjectionMatrix;
-uniform mat4 world;
 uniform mat4 worldInverseTranspose;
 uniform vec3 lightWorldPosition;
 varying vec3 v_normal; 
-varying vec3 v_surfaceToLight;
+varying vec3 lightPosition;
 varying vec3 vertexPos;
-varying vec2 v_texCoord; 
-uniform bool DrawPoint;
-uniform float fScaleValue;
-uniform vec3 PointWorldLocation;
-uniform vec2 UserPointLocation;
-
-mat3 Scale(float fScaleValue) {
-    mat3 sc = mat3(vec3(fScaleValue, 0.0, 0.0),
-                   vec3(0.0, fScaleValue, 0.0),
-                   vec3(0.0, 0.0,  1.0));
-
-    return sc;
-}
-mat3 Translate(vec2 UserPointLocation){
-    mat3 tr = mat3(vec3(1.0, 0.0, 0.0),
-                   vec3(0.0, 1.0, 0.0),
-                   vec3(UserPointLocation.x, UserPointLocation.y,1.0));
-
-    return tr;
-}
-
-vec2 GetTextCoord(float fScaleValue, vec2 UserPointLocation, vec2 texCoordLocation ){
-        vec3 TextCoords = vec3(texCoordLocation, 1);
-        mat3 sc = Scale(fScaleValue);
-        mat3 tr = Translate(-UserPointLocation);
-        mat3 trBack = Translate(UserPointLocation);
-
-        TextCoords = tr * TextCoords;
-        TextCoords = sc * TextCoords;
-        TextCoords = trBack * TextCoords;
-        return TextCoords.xy;
-}
-
-
 void main() {
-    if (DrawPoint == true) {
-        gl_Position = ModelViewProjectionMatrix * vec4(PointWorldLocation,1.0);
-        gl_PointSize = 10.0;
-    }
-    else {
-        vec4 vertexPos4 = ModelViewProjectionMatrix * vec4(vertex, 1.0);
-        gl_Position = vertexPos4;
-        v_normal = mat3(worldInverseTranspose) * normal;
-        vec3 surfaceWorldPosition = (world * vec4(vertex, 1.0)).xyz;
-        v_surfaceToLight = lightWorldPosition - surfaceWorldPosition;
-        vertexPos = vec3(vertexPos4) / vertexPos4.w;
-        v_texCoord = GetTextCoord(fScaleValue,UserPointLocation,texCoordLocation);
-        gl_PointSize = 1.0;
-    }
+    vec4 vertexPosition4 = ModelViewProjectionMatrix * vec4(vertex, 1.0);
+    vec4 lightPosition4 = ModelViewProjectionMatrix * vec4(lightWorldPosition, 1.0);
+    lightPosition = vec3(lightPosition4) / lightPosition4.w;
+    v_normal = mat3(worldInverseTranspose) * normal;
+    vertexPos = vec3(vertexPosition4) / vertexPosition4.w;
+    
+    gl_Position = vertexPosition4;
 }`;
 
 
@@ -73,46 +30,36 @@ const fragmentShaderSource = `
 
 
 varying vec3 v_normal;
-varying vec3 v_surfaceToLight;
-
+varying vec3 lightPosition;
 varying vec3 vertexPos;
-varying vec2 v_texCoord; 
-uniform sampler2D tmu;
-vec4 color = vec4(0.2, 0.2, 0.2,0.0);
-uniform bool DrawPoint;
 void main() {
-    if (DrawPoint == true) {
-        gl_FragColor = color;
-    }
-    else {
-        vec3 AmbientLight   = vec3(0.0,1.0,0.0);
-        vec3 DiffuseLight   = vec3(1.0,1.0,1.0);
-        vec3 SpecularLight  = vec3(1.0,1.0,1.0);
-        vec3 AmbientModel   = vec3(0.1,0.1,0.1);
-        vec3 DiffuseModel   = vec3(0.1,0.1,0.1);
-        vec3 SpecularModel  = vec3(0.1,0.1,0.1);
+    vec3 AmbientLight   = vec3(1.0,0.0,0.0);
+    vec3 DiffuseLight   = vec3(1.0,1.0,1.0);
+    vec3 SpecularLight  = vec3(1.0,1.0,1.0);
+    vec3 AmbientModel   = vec3(0.4,0.1,0.1);
+    vec3 DiffuseModel   = vec3(0.1,0.1,0.1);
+    vec3 SpecularModel  = vec3(0.1,0.1,0.1);
 
-        vec3 normal = normalize(v_normal); 
-        vec3 Light = normalize(v_surfaceToLight);
+    vec3 normal = normalize(vec3(v_normal)); 
+    vec3 Light = normalize(lightPosition);
 
 
-        float LightPoint = max(dot(normal, Light), 0.0); 
-        float shininess = 1.0;
-        float specular = 0.5;
+    float LightPoint = max(dot(normal, Light), 0.0); 
+    float shininess = 70.0;
+    float specular = 0.5;
 
-        // Reflected light vector
-        vec3 R = reflect(-Light, normal);
-        // Vector to viewer
-        vec3 viewPoint = normalize(-vertexPos);
+    // Reflected light vector
+    vec3 R = reflect(-Light, normal);
+    // Vector to viewer
+    vec3 viewPoint = normalize(-vertexPos);
 
-        float specAngle = max(dot(R, viewPoint), 0.0);
-        specular = pow(specAngle, shininess);
-        vec4 TextureColor = texture2D(tmu, v_texCoord);
+    float specAngle = max(dot(R, viewPoint), 0.0);
+    specular = pow(specAngle, shininess);
 
-        gl_FragColor = vec4(AmbientLight * AmbientModel +
-                        DiffuseLight * LightPoint * DiffuseModel +
-                        SpecularLight * specular * SpecularModel, 1.0);
 
-        gl_FragColor += TextureColor;
-    }
+    gl_FragColor = vec4(AmbientLight * AmbientModel +
+                      DiffuseLight * LightPoint * DiffuseModel +
+                      SpecularLight * specular * SpecularModel, 1.0);
+
+
 }`;

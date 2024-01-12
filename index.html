@@ -9,7 +9,6 @@
     }
 
     div#controls {
-        display: none;
         margin-top: 10px;
         width: 800px;
         
@@ -20,7 +19,7 @@
     }
 
     span + label{
-        margin-left: 60px;
+        margin-left: 20px;
     }
     
 
@@ -31,11 +30,15 @@
     button {
         border: none;
         border-radius: 5px;
-        background-color: #3498db; /* Change to your preferred background color */
+        background-color: #3498db;
         color: white;
         font-size: 14px;
         cursor: pointer;
         margin-left: 5px;
+    }
+
+    span + .last {
+        margin-left: 258px;
     }
 </style>
 
@@ -57,7 +60,7 @@
 
 
 <div id="canvas-holder">
-   <canvas width="800" height="800" id="webglcanvas" style="background-color:red"></canvas>
+   <canvas width="800" height="800" id="webglcanvas" style="background-color:blue"></canvas>
 </div>
 
 <div id="controls">
@@ -72,6 +75,10 @@
             <label for="paramAlphaStep">Step alpha</label>
             <input type="range" id="paramAlphaStep" min="0.1" max="1" step="0.01" value="0.1" onchange="updateParameters()">
             <span id="AlphaCurrent">0.1</span>
+
+            <label for="paramOrbitMainAxis">Main Axis R</label>
+            <input type="range" id="paramOrbitMainAxis" min="2.0" max="5" step="0.3" value="2.0" onchange="updateParameters()">
+            <span id="MainAxisCurrent">2.0</span>
         </div>
         
         <div>
@@ -82,12 +89,20 @@
             <label for="paramBetaStep">Step beta</label>
             <input type="range" id="paramBetaStep" min="0" max="20" step="1" value="1" onchange="updateParameters()">
             <span id="BetaCurrent">1</span>
+
+            <label for="paramOrbitSubAxis">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Sub Axis R</label>
+            <input type="range" id="paramOrbitSubAxis" min="1.0" max="3" step="0.3" value="1.5" onchange="updateParameters()">
+            <span id="SubAxisCurrent">1.5</span>
         </div>
 
         <div>
             <label for="paramR">Height</label>
             <input type="range" id="paramB" min="0.2" max="2" step="0.01" value="1.05" onchange="updateParameters()">
             <span id="BCurrent">1.05</span>
+
+            <label class="last" for="paramSpeed">Speed</label>
+            <input type="range" id="paramSpeed" min="0.2" max="2" step="0.1" value="0.5" onchange="updateParameters()">
+            <span id="SpeedCurrent">0.5</span>
         </div>
 
         <div>

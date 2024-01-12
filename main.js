@@ -2,6 +2,7 @@
 
 let gl;                         // The webgl context.
 let surface;                    // A surface model
+let lighting;                   // A lighting model
 let shProgram;                  // A shader program
 let spaceball;                  // A SimpleRotator object that lets the user rotate the view by mouse.
 
@@ -9,12 +10,14 @@ let R1 = 0.35;                   // Radius of smaller cylinder
 let R2 = 3 * R1;                // Radius of bigger cylinder
 let b =  3 * R1;                // Height of the surface
 let stepAlpha = 0.1             // Step for alpha
-let stepBeta = 0.1               // Step for beta
+let stepBeta = 1                // Step for beta
 
-let pointLocationI = 0;
-let pointLocationJ = 0;
-let ScaleValue = 0.0;
-let InputCounter = 0.0;
+let aEliplse = 2                // Radius of semi-major axis of elipse
+let bElipse = 1.5               // Radius of semi-minor axis of elipse
+let elipseSpeed = 0.5 
+let pointRadius = 0.2
+
+let lightPosition = [];
 
 // Degree to Radian
 function deg2rad(angle) {
@@ -22,28 +25,38 @@ function deg2rad(angle) {
 }
 
 // Update parameters on user change
-function setParameters(R1New, R2New, BNew, alphaNew, betaNew){
+function setParameters(R1New, R2New, BNew, alphaNew, betaNew, mainEliplseRadiusNew, subEliplseRadiusNew, elipseSpeedNew){
     R1 = R1New; 
-    //R2 = 3 * R1;
     R2 = R2New;
-    //b =  3 * R1;
     b = BNew;
     stepAlpha = alphaNew
     stepBeta = betaNew;
+    aEliplse = mainEliplseRadiusNew
+    bElipse = subEliplseRadiusNew
+    elipseSpeed = elipseSpeedNew
 }
 
-function updateHtml(r1, r2, b, alphaStep, betaStep){
+function updateHtml(r1, r2, b, alphaStep, betaStep, mainEliplseRadius, subEliplseRadius, elipseSpeedNew){
     document.getElementById("R1Current").textContent = r1;
     document.getElementById("R2Current").textContent = r2;
     document.getElementById("BCurrent").textContent = b;
     document.getElementById("AlphaCurrent").textContent = alphaStep;
     document.getElementById("BetaCurrent").textContent = betaStep;
+    document.getElementById("MainAxisCurrent").textContent = mainEliplseRadius;
+    document.getElementById("SubAxisCurrent").textContent = subEliplseRadius;
+    document.getElementById("SpeedCurrent").textContent = elipseSpeedNew;
+
 
     document.getElementById("paramR1").value = r1
     document.getElementById("paramR2").value = r2
     document.getElementById("paramB").value = b
     document.getElementById("paramAlphaStep").value = alphaStep;
     document.getElementById("paramBetaStep").value = betaStep;
+    document.getElementById("paramOrbitMainAxis").value = mainEliplseRadius;
+    document.getElementById("paramOrbitSubAxis").value = subEliplseRadius;
+    document.getElementById("paramSpeed").textContent = elipseSpeedNew;
+
+
 }
 
 // Function to set default surface parameters
@@ -53,10 +66,18 @@ function setDefault() {
     const b = 1.05
     const alphaStep = 0.1;
     const betaStep = 1;
+    const aElipse = 2
+    const bElipse = 1.5
+    const elipseSpeed = 0.5
 
-    setParameters(r1, r2, b, alphaStep, betaStep)
-    updateHtml(r1, r2, b, alphaStep, betaStep)
-    surface.BufferData(CreateSurfaceData());
+
+    setParameters(r1, r2, b, alphaStep, betaStep, aElipse, bElipse, elipseSpeed)
+    updateHtml(r1, r2, b, alphaStep, betaStep, aElipse, bElipse, elipseSpeed)
+    let surfaceInfo = CreateSurfaceData()
+    let vertex = surfaceInfo[0];
+    let normals = surfaceInfo[1]
+
+    surface.BufferData(vertex, normals);
     draw();
 }
 
@@ -67,12 +88,21 @@ function updateParameters() {
     const b = parseFloat(document.getElementById("paramB").value);
     const alphaStep = parseFloat(document.getElementById("paramAlphaStep").value);
     const betaStep = parseFloat(document.getElementById("paramBetaStep").value);
+    const mainEliplseRadius = parseFloat(document.getElementById("paramOrbitMainAxis").value);
+    const subEliplseRadius = parseFloat(document.getElementById("paramOrbitSubAxis").value);
+    const eliplseSpeed = parseFloat(document.getElementById("paramSpeed").value);
     
-    setParameters(r1, r2, b, alphaStep, betaStep)
+    setParameters(r1, r2, b, alphaStep, betaStep, mainEliplseRadius, subEliplseRadius, eliplseSpeed)
+    updateHtml(r1, r2, b, alphaStep, betaStep, mainEliplseRadius, subEliplseRadius, eliplseSpeed)
 
-    updateHtml(r1, r2, b, alphaStep, betaStep)
-    surface.BufferData(CreateSurfaceData());
+    let surfaceInfo = CreateSurfaceData()
+    let vertex = surfaceInfo[0];
+    let normals = surfaceInfo[1]
+
+    surface.BufferData(vertex, normals);
+
     draw();
+    gl.enable(gl.DEPTH_TEST);
 }
 
 // Constructor
@@ -80,29 +110,19 @@ function Model(name) {
     this.name = name;
     this.iVertexBuffer = gl.createBuffer();
     this.iNormalBuffer = gl.createBuffer();
-    this.iTexBuffer = gl.createBuffer();
-    this.iPointBuffer  = gl.createBuffer();
     this.count = 0;
 
-    this.BufferData = function(vertices, normals, texCoord) {
+    this.BufferData = function(vertices, normals) {
 
         gl.bindBuffer(gl.ARRAY_BUFFER, this.iVertexBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
-
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STREAM_DRAW);
         gl.bindBuffer(gl.ARRAY_BUFFER, this.iNormalBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STATIC_DRAW);
-
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.iTexBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texCoord), gl.STATIC_DRAW);
-
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.iPointBuffer)
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0,0,0]), gl.DYNAMIC_DRAW);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STREAM_DRAW);
 
         this.count = vertices.length/3;
     }
 
     this.Draw = function() {
-        gl.uniform1i(shProgram.iDrawPoint, false);
         gl.bindBuffer(gl.ARRAY_BUFFER, this.iVertexBuffer);
         gl.vertexAttribPointer(shProgram.iAttribVertex, 3, gl.FLOAT, false, 0, 0);
         gl.enableVertexAttribArray(shProgram.iAttribVertex);
@@ -111,14 +131,7 @@ function Model(name) {
         gl.vertexAttribPointer(shProgram.iAttribNormal, 3, gl.FLOAT, false, 0, 0);
         gl.enableVertexAttribArray(shProgram.iAttribNormal);
 
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.iTexBuffer);
-        gl.vertexAttribPointer(shProgram.itexCoordLocation, 2, gl.FLOAT, false, 0, 0);
-        gl.enableVertexAttribArray(shProgram.itexCoordLocation);
-
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, this.count);
-
-        gl.uniform1i(shProgram.iDrawPoint, true);
-        gl.drawArrays(gl.POINTS, 0, 1);
     }
 }
 
@@ -137,17 +150,11 @@ function ShaderProgram(name, program) {
     // Location of the uniform matrix representing the combined transformation.
     this.iModelViewProjectionMatrix = -1;
 
-    this.iWorldInverseTransposeLocation =  -1;
-    this.iLightWorldPositionLocation = -1;
-    this.iWorldLocation = -1;
-    this.viewWorldPositionLocation = -1;
+    this.iWorldInverseTransposeLocation = -1;
+    this.iLightPosition = -1;
+    this.iLighting = -1;
 
-    this.Itmu = -1;
-    this.itexCoordLocation = -1;
-    this.iDrawPoint = -1;
-    this.iPointWorldLocation = -1;
-    this.iScaleValue = -1;
-    this.iPointLocation_u_v = -1;
+    this.viewWorldPositionLocation = -1;
 
     this.Use = function() {
         gl.useProgram(this.prog);
@@ -160,11 +167,11 @@ function ShaderProgram(name, program) {
  * way to draw with WebGL.  Here, the geometry is so simple that it doesn't matter.)
  */
 function draw() { 
-    gl.clearColor(0,0,0,1);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);    
-
+    gl.clearColor(0,0,1,1);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    
     /* Set the values of the projection transformation */
-    let projection = m4.perspective(Math.PI/6, 1, 8, 12); 
+    let projection = m4.perspective(Math.PI/4, 1, 8, 12); 
     
     /* Get the view matrix from the SimpleRotator object.*/
     let modelView = spaceball.getViewMatrix();
@@ -182,18 +189,12 @@ function draw() {
     let worldInverseMatrix = m4.inverse(matAccum1);
     let worldInverseTransposeMatrix = m4.transpose(worldInverseMatrix);
 
-    gl.uniformMatrix4fv(shProgram.iModelViewProjectionMatrix, false, modelViewProjection );
+    gl.uniformMatrix4fv(shProgram.iModelViewProjectionMatrix, false, modelViewProjection );    
     gl.uniformMatrix4fv(shProgram.iWorldInverseTransposeLocation, false, worldInverseTransposeMatrix);
-    gl.uniformMatrix4fv(shProgram.iWorldLocation, false, matAccum1);
-
     
-    gl.uniform3fv(shProgram.iLightWorldPositionLocation, [20, 30, 50]);
 
-    gl.uniform1i(shProgram.Itmu, 0);
-    gl.uniform3fv(shProgram.iPointWorldLocation, getPointLocation());
-    gl.uniform1f(shProgram.iScaleValue,  ScaleValue);
-    gl.uniform2fv(shProgram.iPointLocation_u_v,[pointLocationI / (2 * b), pointLocationJ / 360]);
     surface.Draw();
+    lighting.Draw();
 }
 
 // Function to calculate X surface coordinate
@@ -235,7 +236,6 @@ function CreateSurfaceData()
 {
     let vertexList = [];
     let normalsList = [];
-    let texCoordList = [];
     let x = 0
     let y = 0
     let z = 0
@@ -255,7 +255,7 @@ function CreateSurfaceData()
             
             vertexList.push(x, y, z);
             normalsList.push(UVproduct[0], UVproduct[1], UVproduct[2]);
-            texCoordList.push(i / (2 * b), j / 360);
+
 
             x = getX(i + 0.1, j);
             y = getY(i + 0.1, j);
@@ -266,111 +266,33 @@ function CreateSurfaceData()
             
             vertexList.push(x, y, z);
             normalsList.push(UVproduct[0], UVproduct[1], UVproduct[2]);
-            texCoordList.push((i + 0.1) / (2 * b), j / 360);
-
         }
     }
 
-    return [vertexList, normalsList, texCoordList];  
+    return [vertexList, normalsList]; 
 }
 
-
-function createTexture(){
-    let texture = gl.createTexture();
-
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-
-
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE, new Uint8Array([255,255,255,255]));
-
-    let img = new Image();
-    img.crossOrigin = "Anonymous";
-    img.src = 'https://static.vecteezy.com/system/resources/thumbnails/022/664/807/small/cat-face-silhouettes-cat-face-svg-black-and-white-cat-vector.jpg';
-    img.addEventListener('load', function() {
-        gl.bindTexture(gl.TEXTURE_2D, texture);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE, img);
-        gl.generateMipmap(gl.TEXTURE_2D);
-        draw();
-    });
+function showAnimation() {
+    elipseMovement(aEliplse, bElipse, elipseSpeed);
+    requestAnimationFrame(showAnimation);
 }
 
+function elipseMovement(a, b, speed) {
 
-window.addEventListener("keydown", (event) =>{  
-    switch (event.key) {
-        case "w":
-            ProcessPressW();
-            break;
-        case "s":
-            ProcessPressS();
-            break;
-        case "a":
-            ProcessPressA();
-            break;
-        case "d":
-            ProcessPressD();
-            break;
-        case "+":
-            ProcessAddValueScale();
-            break;
-        case "-":
-            ProcessSubValueScale();
-            break;
-        default:
-            return; 
-    }
-});
+    let time = performance.now() * 0.004; 
+    let phi = time * speed; 
 
-function ProcessAddValueScale()
-{
-    ScaleValue += 0.2;
-    draw();
+    let newLightPosition = [a * Math.cos(phi), b * Math.sin(phi), 0];
+    let lightInfo = CreateLightSurface(newLightPosition)
+    let vertex1 = lightInfo[0];
+    let vertex2 = lightInfo[1]
+
+    lighting.BufferData(vertex1, vertex2);
+    gl.uniform3fv(shProgram.iLightPosition, newLightPosition);
+
+    surface.Draw();
+    lighting.Draw();
 }
-function ProcessSubValueScale()
-{
-    ScaleValue -= 0.2;
-    draw();
-}
-
-function ProcessPressW()
-{
-    pointLocationJ -= 5.0;
-    draw();
-}
-
-function ProcessPressS()
-{
-    pointLocationJ += 5.0;
-    draw();
-}
-
-function ProcessPressA()
-{
-    pointLocationI -= 0.1;
-    draw();
-}
-
-function ProcessPressD()
-{
-    pointLocationI += 0.1;
-    draw();
-}
-
-function getPointLocation(){
-    let pointList = [];
-    let x, y, z;
-
-    x = getX(pointLocationI, pointLocationJ);
-    y = getY(pointLocationI, pointLocationJ);
-    z = getZ(pointLocationI);
-    pointList.push(x, y, z);
-    return pointList;
-}
-
 
 /* Initialize the WebGL context. Called from init() */
 function initGL() {
@@ -380,36 +302,58 @@ function initGL() {
     shProgram.Use();
 
     shProgram.iAttribVertex              = gl.getAttribLocation(prog, "vertex");
-    shProgram.iAttribNormal              = gl.getAttribLocation(prog,"normal");
-
-    shProgram.iWorldInverseTransposeLocation = gl.getUniformLocation(prog, "worldInverseTranspose");
-    shProgram.iLightWorldPositionLocation = gl.getUniformLocation(prog, "lightWorldPosition");
-    shProgram.iWorldLocation = gl.getUniformLocation(prog, "world");
-
-
+    shProgram.iAttribNormal              = gl.getAttribLocation(prog,"normal"); 
     shProgram.iModelViewProjectionMatrix = gl.getUniformLocation(prog, "ModelViewProjectionMatrix");
+    shProgram.iWorldInverseTransposeLocation = gl.getUniformLocation(prog, "worldInverseTranspose");
     shProgram.iColor                     = gl.getUniformLocation(prog, "color");
-    shProgram.viewWorldPositionLocation = gl.getUniformLocation(prog, "viewWorldPosition");
 
-    shProgram.Itmu                              = gl.getUniformLocation(prog, "tmu");//u_tex->textureLocation
-    shProgram.itexCoordLocation                 = gl.getAttribLocation(prog, "texCoordLocation")//a_tex->texcoordLocation
+    shProgram.iLightPosition = gl.getUniformLocation(prog, "lightWorldPosition");
+    shProgram.iLighting = gl.getUniformLocation(prog, "lighting");
 
-    shProgram.iDrawPoint                 = gl.getUniformLocation(prog,"DrawPoint");
-    shProgram.iPointWorldLocation        = gl.getUniformLocation(prog,"PointWorldLocation");
-    shProgram.iScaleValue                       = gl.getUniformLocation(prog,"fScaleValue");
-    shProgram.iPointLocation_u_v                = gl.getUniformLocation(prog,"UserPointLocation");
     surface = new Model('Surface');
 
     let surfaceInfo = CreateSurfaceData()
     let vertex = surfaceInfo[0];
     let normals = surfaceInfo[1]
-    let texture = surfaceInfo[2]
+    surface.BufferData(vertex, normals);
 
-    surface.BufferData(vertex, normals, texture);
+    lighting = new Model();
+    
+    let lightInfo = CreateLightSurface(lightPosition)
+    let vertex1 = lightInfo[0];
+    let vertex2 = lightInfo[1]
+
+    lighting.BufferData(vertex1, vertex2);
+
 
     gl.enable(gl.DEPTH_TEST);
 }
 
+
+function calculateSphere(phi, theta, lightPosition){
+    let xCord = lightPosition[0] + ( pointRadius * Math.sin(theta) * Math.cos(phi) );
+    let yCord = lightPosition[1] + ( pointRadius * Math.sin(theta) * Math.sin(phi) );
+    let zCord = lightPosition[2] + ( pointRadius * Math.cos(theta) );
+    
+    return [xCord, yCord, zCord];
+}
+   
+
+function CreateLightSurface(lightPosition) {
+
+    let vertexList = [];
+
+    for (let phi = 0; phi <= Math.PI; phi += 0.1) {
+        for (let theta = 0; theta <= 2 * Math.PI; theta += 0.1) {
+            let vertex1 = calculateSphere(theta, phi, lightPosition);
+            let vertex2 = calculateSphere(theta, phi + 0.1, lightPosition);
+            let vertex3 = calculateSphere(theta + 0.1, phi, lightPosition);
+            let vertex4 = calculateSphere(theta + 0.1, phi + 0.1, lightPosition);
+            vertexList.push(...vertex1, ...vertex2, ...vertex3, ...vertex3, ...vertex2, ...vertex4);
+        }
+    }
+    return [vertexList, vertexList];
+}
 
 /* Creates a program for use in the WebGL context gl, and returns the
  * identifier for that program.  If an error occurs while compiling or
@@ -471,5 +415,6 @@ function init() {
 
     spaceball = new TrackballRotator(canvas, draw, 0);
     
-    createTexture();
+    draw();
+    showAnimation();
 }

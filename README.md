@@ -1,12 +1,8 @@
 # VGGI Calculation and graphics work
 
-- Vatiant 25 - Scaling
+- Vatiant 25
 
 
-### Cgw.gif
-![alt text](screens/cgw.gif "Surface")​
-
-
-
-### Cgw screenshot
-![alt text](screens/screenshot.jpg "Surface")​
+### PA3.gif
+![alt text](screens/PA3.gif "Surface")​
+​
